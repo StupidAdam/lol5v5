@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>LOL 5v5 位置分配</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <main class="app">
+
+    <header class="hero">
+      <h1>LOL 5v5 位置分配</h1>
+      <p>玩家自己选蓝队 / 红队 · 每队满 5 人 · 随机分配五个位置</p>
+    </header>
+
+    <!-- 1. 选队 -->
+    <section class="card">
+      <div class="card-head">
+        <h2>1. 选择队伍</h2>
+        <span class="hint" id="countHint">0 / 10</span>
+      </div>
+
+      <div class="rosters">
+        <div class="roster blue">
+          <div class="roster-head">
+            <input id="teamA" type="text" maxlength="8" value="蓝队" aria-label="蓝队名称">
+            <span class="hint" id="countBlue">0 / 5</span>
+          </div>
+          <div class="slots-input" id="gridBlue"></div>
+          <button class="btn tiny team-btn" id="btnJoinBlue" type="button">加入蓝队</button>
+        </div>
+
+        <div class="roster red">
+          <div class="roster-head">
+            <input id="teamB" type="text" maxlength="8" value="红队" aria-label="红队名称">
+            <span class="hint" id="countRed">0 / 5</span>
+          </div>
+          <div class="slots-input" id="gridRed"></div>
+          <button class="btn tiny team-btn" id="btnJoinRed" type="button">加入红队</button>
+        </div>
+      </div>
+
+      <div class="join">
+        <input id="joinInput" type="text" maxlength="12" placeholder="输入你的名字，再点上面的队伍按钮" autocomplete="off">
+      </div>
+
+      <div class="row">
+        <button class="btn ghost" id="btnDemo" type="button">填入示例</button>
+        <button class="btn ghost" id="btnClear" type="button">清空名单</button>
+      </div>
+
+      <div class="invite">
+        <button class="btn ghost block" id="btnInvite" type="button">生成邀请链接</button>
+        <div class="invite-box hidden" id="inviteBox">
+          <input id="inviteLink" type="text" readonly>
+          <button class="btn small" id="btnCopyLink" type="button">复制</button>
+        </div>
+        <p class="note">邀请链接把两队名单写进网址，转发到群里即可让朋友继续选队加入。无服务器、无登录。</p>
+      </div>
+    </section>
+
+    <!-- 2. 分配位置 -->
+    <section class="card">
+      <div class="card-head">
+        <h2>2. 随机分配位置</h2>
+        <span class="hint">只抽位置，不动队伍</span>
+      </div>
+      <p class="note" id="readyHint">队伍由玩家自行选择，这里只给每队随机分配上单 / 中单 / 打野 / 射手 / 辅助，可反复重抽。</p>
+      <button class="btn primary block" id="btnDraw" type="button">一键随机分配位置</button>
+    </section>
+
+    <!-- 3. 结果 -->
+    <section class="card hidden" id="resultCard">
+      <div class="card-head">
+        <h2>3. 位置结果</h2>
+        <button class="btn small ghost" id="btnCopyResult" type="button">复制结果</button>
+      </div>
+      <div class="teams" id="resultBody"></div>
+      <button class="btn ghost block" id="btnRedraw" type="button">重新抽取位置</button>
+    </section>
+
+    <!-- 4. 历史 -->
+    <section class="card hidden" id="historyCard">
+      <div class="card-head">
+        <h2>最近记录</h2>
+        <button class="btn small ghost" id="btnClearHistory" type="button">清空</button>
+      </div>
+      <ul class="history" id="historyList"></ul>
+    </section>
+
+    <!-- 说明 -->
+    <section class="card note-card">
+      <h2>关于「自动读取微信 ID」</h2>
+      <p>
+        网页无法获取微信昵称或 openid —— 微信只在小程序 / 公众号授权体系内开放身份信息，
+        且昵称头像接口近两年已收紧。因此本工具采用等价方案：
+      </p>
+      <ul>
+        <li>发起者生成<strong>邀请链接</strong>转发到群里，两队名单写在网址里，谁打开都能看到当前进度；</li>
+        <li>每个人<strong>填名字 + 点自己想进的队伍</strong>（只需填一次，浏览器会记住），加入后链接自动更新，继续转给下一个人；</li>
+        <li>如果确实要自动读微信昵称，只能走小程序路线，需要注册账号 + 提审，成本远高于本场景的收益。</li>
+      </ul>
+      <p class="note">所有数据只存在你的浏览器本地（localStorage）和网址里，没有任何后端。</p>
+    </section>
+
+    <footer class="foot">名单与结果不会上传，清空浏览器数据即消失。</footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

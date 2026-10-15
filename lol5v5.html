@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>LOL 5v5 位置分配</title>
+  <style>
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --line: #e8eaf0;
+  --text: #1f2430;
+  --text-dim: #6b7280;
+  --brand: #4f74e3;
+  --brand-weak: #eef1fd;
+  --blue-bg: #e8f0fe;
+  --blue-text: #1e40af;
+  --red-bg: #fdeaec;
+  --red-text: #9f1239;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 14px 40px;
+}
+
+/* ---------- hero ---------- */
+.hero { padding: 8px 6px 18px; }
+.hero h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.hero p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ---------- card ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.card-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.hint {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ---------- form ---------- */
+input {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfe;
+  outline: none;
+  -webkit-appearance: none;
+}
+input:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+input::placeholder { color: #b5bac6; }
+
+/* ---------- 两队名单 ---------- */
+.rosters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.roster {
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--blue-bg);
+}
+.roster.red { background: var(--red-bg); }
+
+.roster-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.roster-head input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  background: #fff;
+  padding: 7px 10px;
+}
+.roster.blue .roster-head input { color: var(--blue-text); }
+.roster.red .roster-head input { color: var(--red-text); }
+
+.slots-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.slot input { flex: 1; min-width: 0; padding: 8px 10px; }
+.slot .me-tag {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--brand-weak);
+  color: var(--brand);
+  pointer-events: none;
+}
+.slot input.is-me { padding-right: 68px; border-color: var(--brand); }
+.slot .del {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .75);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.slot .del:active { background: rgba(255, 255, 255, 1); }
+
+.team-btn { margin-top: 8px; }
+.roster.blue .team-btn { background: #fff; color: var(--blue-text); border-color: #c7d9fb; }
+.roster.red .team-btn { background: #fff; color: var(--red-text); border-color: #f6ccd2; }
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.row .btn { flex: 1; }
+
+.join { margin-top: 12px; }
+.join input { width: 100%; }
+
+/* ---------- button ---------- */
+.btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:active { transform: scale(.985); }
+.btn.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 13px 14px;
+}
+.btn.ghost { background: #fbfcfe; color: var(--text-dim); }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+.btn.tiny { padding: 7px 10px; font-size: 13px; font-weight: 600; width: 100%; }
+.btn.block { width: 100%; display: block; }
+
+/* ---------- invite ---------- */
+.invite { margin-top: 12px; }
+.invite-box {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.invite-box input {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.invite-box .btn { flex: 0 0 60px; }
+.note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ---------- result ---------- */
+.teams {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.team {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--blue-bg);
+}
+.team.red { background: var(--red-bg); }
+.team-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--blue-text);
+}
+.team.red .team-title { color: var(--red-text); }
+
+.slots { list-style: none; margin: 0; padding: 0; }
+.slots li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, .65);
+}
+.slots li:first-child { border-top: none; }
+.slots .pos {
+  flex: 0 0 46px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.slots .name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slots .name.rolling { color: var(--text-dim); font-weight: 500; }
+
+#resultCard .btn.ghost.block { margin-top: 12px; }
+
+/* ---------- history ---------- */
+.history { list-style: none; margin: 0; padding: 0; }
+.history li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.history li:first-child { border-top: none; }
+.history .t { flex: 1; color: var(--text-dim); }
+.history .s {
+  flex: 2;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- note card ---------- */
+.note-card h2 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
+.note-card p { margin: 0 0 8px; font-size: 13px; color: var(--text-dim); line-height: 1.7; }
+.note-card ul { margin: 0; padding-left: 18px; }
+.note-card li { font-size: 13px; color: var(--text-dim); line-height: 1.7; }
+.note-card strong { color: var(--text); }
+
+.foot {
+  text-align: center;
+  font-size: 12px;
+  color: #a4a9b6;
+  padding: 6px 0 0;
+}
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 12px);
+  background: rgba(31, 36, 48, .92);
+  color: #fff;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 20;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.hidden { display: none !important; }
+
+/* ---------- wider screens ---------- */
+@media (min-width: 560px) {
+  .teams { grid-template-columns: 1fr 1fr; }
+  .rosters { grid-template-columns: 1fr 1fr; }
+}
+
+</style>
+</head>
+<body>
+  <main class="app">
+
+    <header class="hero">
+      <h1>LOL 5v5 位置分配</h1>
+      <p>玩家自己选蓝队 / 红队 · 每队满 5 人 · 随机分配五个位置</p>
+    </header>
+
+    <!-- 1. 选队 -->
+    <section class="card">
+      <div class="card-head">
+        <h2>1. 选择队伍</h2>
+        <span class="hint" id="countHint">0 / 10</span>
+      </div>
+
+      <div class="rosters">
+        <div class="roster blue">
+          <div class="roster-head">
+            <input id="teamA" type="text" maxlength="8" value="蓝队" aria-label="蓝队名称">
+            <span class="hint" id="countBlue">0 / 5</span>
+          </div>
+          <div class="slots-input" id="gridBlue"></div>
+          <button class="btn tiny team-btn" id="btnJoinBlue" type="button">加入蓝队</button>
+        </div>
+
+        <div class="roster red">
+          <div class="roster-head">
+            <input id="teamB" type="text" maxlength="8" value="红队" aria-label="红队名称">
+            <span class="hint" id="countRed">0 / 5</span>
+          </div>
+          <div class="slots-input" id="gridRed"></div>
+          <button class="btn tiny team-btn" id="btnJoinRed" type="button">加入红队</button>
+        </div>
+      </div>
+
+      <div class="join">
+        <input id="joinInput" type="text" maxlength="12" placeholder="输入你的名字，再点上面的队伍按钮" autocomplete="off">
+      </div>
+
+      <div class="row">
+        <button class="btn ghost" id="btnDemo" type="button">填入示例</button>
+        <button class="btn ghost" id="btnClear" type="button">清空名单</button>
+      </div>
+
+      <div class="invite">
+        <button class="btn ghost block" id="btnInvite" type="button">生成邀请链接</button>
+        <div class="invite-box hidden" id="inviteBox">
+          <input id="inviteLink" type="text" readonly>
+          <button class="btn small" id="btnCopyLink" type="button">复制</button>
+        </div>
+        <p class="note">邀请链接把两队名单写进网址，转发到群里即可让朋友继续选队加入。无服务器、无登录。</p>
+      </div>
+    </section>
+
+    <!-- 2. 分配位置 -->
+    <section class="card">
+      <div class="card-head">
+        <h2>2. 随机分配位置</h2>
+        <span class="hint">只抽位置，不动队伍</span>
+      </div>
+      <p class="note" id="readyHint">队伍由玩家自行选择，这里只给每队随机分配上单 / 中单 / 打野 / 射手 / 辅助，可反复重抽。</p>
+      <button class="btn primary block" id="btnDraw" type="button">一键随机分配位置</button>
+    </section>
+
+    <!-- 3. 结果 -->
+    <section class="card hidden" id="resultCard">
+      <div class="card-head">
+        <h2>3. 位置结果</h2>
+        <button class="btn small ghost" id="btnCopyResult" type="button">复制结果</button>
+      </div>
+      <div class="teams" id="resultBody"></div>
+      <button class="btn ghost block" id="btnRedraw" type="button">重新抽取位置</button>
+    </section>
+
+    <!-- 4. 历史 -->
+    <section class="card hidden" id="historyCard">
+      <div class="card-head">
+        <h2>最近记录</h2>
+        <button class="btn small ghost" id="btnClearHistory" type="button">清空</button>
+      </div>
+      <ul class="history" id="historyList"></ul>
+    </section>
+
+    <!-- 说明 -->
+    <section class="card note-card">
+      <h2>关于「自动读取微信 ID」</h2>
+      <p>
+        网页无法获取微信昵称或 openid —— 微信只在小程序 / 公众号授权体系内开放身份信息，
+        且昵称头像接口近两年已收紧。因此本工具采用等价方案：
+      </p>
+      <ul>
+        <li>发起者生成<strong>邀请链接</strong>转发到群里，两队名单写在网址里，谁打开都能看到当前进度；</li>
+        <li>每个人<strong>填名字 + 点自己想进的队伍</strong>（只需填一次，浏览器会记住），加入后链接自动更新，继续转给下一个人；</li>
+        <li>如果确实要自动读微信昵称，只能走小程序路线，需要注册账号 + 提审，成本远高于本场景的收益。</li>
+      </ul>
+      <p class="note">所有数据只存在你的浏览器本地（localStorage）和网址里，没有任何后端。</p>
+    </section>
+
+    <footer class="foot">名单与结果不会上传，清空浏览器数据即消失。</footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+/* LOL 5v5 位置分配 —— 玩家自选蓝队/红队，只为每队随机分配位置。纯前端，无后端、无登录 */
+(function () {
+  'use strict';
+
+  var POSITIONS = ['上单', '中单', '打野', '射手', '辅助'];
+  var TEAM_SIZE = 5;
+  var SLOT_COUNT = TEAM_SIZE * 2;      // 蓝 5 + 红 5
+  var STORE_KEY = 'lol-randomizer-v2';
+  var MAX_HISTORY = 5;
+
+  var $ = function (sel) { return document.querySelector(sel); };
+
+  // ---------------- 状态 ----------------
+  // players: 长度 10，下标 0-4 属于蓝队，5-9 属于红队；'' 表示空位
+  var state = {
+    players: new Array(SLOT_COUNT).fill(''),
+    teamNames: ['蓝队', '红队'],
+    me: -1,                 // 「我」所在的槽位下标，-1 表示未加入
+    history: []             // [{ at: number, text: string }]
+  };
+
+  var current = null;   // 当前结果 { teams: [[{position,name}...], [...]], at }
+  var rolling = false;  // 动画进行中
+  var animTimer = null; // 动画计时器，便于打断
+
+  // ---------------- 随机工具（均匀分布，无取模偏差） ----------------
+  var buf = new Uint32Array(1);
+  function randInt(maxExclusive) {
+    if (maxExclusive <= 0) return 0;
+    crypto.getRandomValues(buf);
+    return Math.floor((buf[0] / 4294967296) * maxExclusive);
+  }
+
+  function shuffle(list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = randInt(i + 1);
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // ---------------- 队伍切片 ----------------
+  function teamRange(t) { return { from: t * TEAM_SIZE, to: t * TEAM_SIZE + TEAM_SIZE }; }
+  function teamLabel(t) { return $('#' + (t === 0 ? 'teamA' : 'teamB')).value.trim() || (t === 0 ? '蓝队' : '红队'); }
+  function defaultLabel(t) { return t === 0 ? '蓝队' : '红队'; }
+
+  /** 某队的槽位数组（可能含空字符串） */
+  function teamSlots(t) {
+    var r = teamRange(t);
+    return state.players.slice(r.from, r.to);
+  }
+
+  /** 最终名单：空位用「蓝队空位 N」/「红队空位 N」占位 */
+  function roster() {
+    return state.players.map(function (name, i) {
+      if (name.trim() !== '') return name.trim();
+      var t = i < TEAM_SIZE ? 0 : 1;
+      return teamLabel(t) + '空位' + ((i % TEAM_SIZE) + 1);
+    });
+  }
+
+  function filledIn(t) {
+    return teamSlots(t).filter(function (s) { return s.trim() !== ''; }).length;
+  }
+
+  // ---------------- 渲染名单 ----------------
+  function renderRosters() {
+    [0, 1].forEach(function (t) {
+      var host = $('#' + (t === 0 ? 'gridBlue' : 'gridRed'));
+      host.innerHTML = '';
+      var r = teamRange(t);
+      for (var i = r.from; i < r.to; i++) {
+        host.appendChild(buildSlot(i, t));
+      }
+      $('#' + (t === 0 ? 'countBlue' : 'countRed')).textContent = filledIn(t) + ' / ' + TEAM_SIZE;
+    });
+    $('#countHint').textContent = (filledIn(0) + filledIn(1)) + ' / ' + SLOT_COUNT;
+  }
+
+  function buildSlot(index, team) {
+    var wrap = document.createElement('div');
+    wrap.className = 'slot';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 12;
+    input.dataset.index = String(index);
+    input.dataset.team = String(team);
+    input.autocomplete = 'off';
+    input.placeholder = defaultLabel(team) + '空位' + ((index % TEAM_SIZE) + 1);
+    input.value = state.players[index] || '';
+    input.addEventListener('input', function () {
+      state.players[index] = input.value;
+      renderRosters();
+      save();
+      syncUrl();
+    });
+
+    if (state.me === index) {
+      input.classList.add('is-me');
+      var tag = document.createElement('span');
+      tag.className = 'me-tag';
+      tag.textContent = '我';
+      wrap.appendChild(tag);
+    }
+
+    wrap.appendChild(input);
+
+    if ((state.players[index] || '').trim() !== '') {
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.type = 'button';
+      del.title = '移出该队';
+      del.setAttribute('aria-label', '移出该队');
+      del.textContent = '×';
+      del.addEventListener('click', function () {
+        state.players[index] = '';
+        if (state.me === index) state.me = -1;
+        renderRosters();
+        save();
+        syncUrl();
+        toast('已移出' + teamLabel(team));
+      });
+      wrap.appendChild(del);
+    }
+
+    return wrap;
+  }
+
+  // ---------------- 本地存储 ----------------
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        players: state.players,
+        teamNames: [teamLabel(0), teamLabel(1)],
+        me: state.me,
+        history: state.history
+      }));
+    } catch (e) { /* 隐私模式下忽略 */ }
+  }
+
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(STORE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    try {
+      var d = JSON.parse(raw);
+      if (Array.isArray(d.players) && d.players.length === SLOT_COUNT) state.players = d.players;
+      if (Array.isArray(d.teamNames) && d.teamNames.length === 2) state.teamNames = d.teamNames;
+      if (typeof d.me === 'number') state.me = d.me;
+      if (Array.isArray(d.history)) state.history = d.history.slice(0, MAX_HISTORY);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ---------------- URL 同步（邀请链接的载体） ----------------
+  function parseNames(raw) {
+    if (!raw) return [];
+    return raw.split(',').slice(0, TEAM_SIZE).map(function (s) {
+      return decodeURIComponent(s).trim().slice(0, 12);
+    });
+  }
+
+  function readUrlTeams() {
+    var qs = new URLSearchParams(location.search);
+    var blue = parseNames(qs.get('blue'));
+    var red = parseNames(qs.get('red'));
+    var legacy = parseNames(qs.get('names'));   // 兼容旧版 ?names=（前 5 蓝，其余红）
+    if (!blue.length && !red.length && !legacy.length) return null;
+    if (!blue.length && !red.length) return { blue: legacy.slice(0, 5), red: legacy.slice(5, 10) };
+    return { blue: blue, red: red };
+  }
+
+  function buildUrl() {
+    var params = new URLSearchParams();
+    [0, 1].forEach(function (t) {
+      var filled = teamSlots(t).filter(function (s) { return s.trim() !== ''; });
+      if (filled.length) params.set(t === 0 ? 'blue' : 'red', filled.join(','));
+    });
+    var qs = params.toString();
+    return location.origin + location.pathname + (qs ? '?' + qs : '');
+  }
+
+  var urlTimer = null;
+  function syncUrl() {
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(function () {
+      try { history.replaceState(null, '', buildUrl()); } catch (e) { /* file:// 下忽略 */ }
+    }, 200);
+  }
+
+  // ---------------- 位置分配算法（队伍不动，只洗位置） ----------------
+  function makeAssign(names) {
+    var teams = [0, 1].map(function (t) {
+      var r = teamRange(t);
+      var members = names.slice(r.from, r.to);
+      var pos = shuffle(POSITIONS);              // 每队独立洗一次位置
+      return members.map(function (name, i) {
+        return { position: pos[i], name: name };
+      });
+    });
+    return { teams: teams, at: Date.now() };
+  }
+
+  function fingerprint(r) {
+    return r.teams.map(function (team) {
+      return team.map(function (s) { return s.position + ':' + s.name; }).join('|');
+    }).join('//');
+  }
+
+  function draw() {
+    if (rolling) { clearInterval(animTimer); rolling = false; }   // 连点时打断上一次动画
+    var names = roster();
+    var prev = current ? fingerprint(current) : null;
+    var result = makeAssign(names);
+    // 抽到与上一次完全相同的结果时重抽，避免「点了没反应」
+    for (var i = 0; i < 20 && fingerprint(result) === prev; i++) {
+      result = makeAssign(names);
+    }
+    current = result;
+    pushHistory(result);
+    save();
+    reveal(result);
+  }
+
+  // ---------------- 结果渲染（带短动画） ----------------
+  function reveal(result, withAnim) {
+    var body = $('#resultBody');
+    $('#resultCard').classList.remove('hidden');
+
+    var nameEls = [];
+    body.innerHTML = '';
+    result.teams.forEach(function (team, ti) {
+      var box = document.createElement('div');
+      box.className = 'team' + (ti === 1 ? ' red' : '');
+
+      var title = document.createElement('div');
+      title.className = 'team-title';
+      title.textContent = teamLabel(ti);
+      box.appendChild(title);
+
+      var ul = document.createElement('ul');
+      ul.className = 'slots';
+      team.forEach(function (slot) {
+        var li = document.createElement('li');
+        var p = document.createElement('span');
+        p.className = 'pos';
+        p.textContent = slot.position;
+        var n = document.createElement('span');
+        n.className = 'name';
+        n.textContent = slot.name;
+        li.appendChild(p);
+        li.appendChild(n);
+        ul.appendChild(li);
+        nameEls.push({ el: n, final: slot.name });
+      });
+
+      box.appendChild(ul);
+      body.appendChild(box);
+    });
+
+    if (withAnim === false) return;   // 改队名等场景：只刷新文案，不放动画
+    animate(nameEls, result);
+  }
+
+  function animate(nameEls, result) {
+    rolling = true;
+    var pool = roster();
+    var ticks = 0;
+    var timer = animTimer = setInterval(function () {
+      ticks++;
+      var spinning = ticks <= 8;
+      nameEls.forEach(function (item) {
+        if (spinning) {
+          item.el.classList.add('rolling');
+          item.el.textContent = pool[randInt(pool.length)];
+        } else {
+          item.el.classList.remove('rolling');
+          item.el.textContent = item.final;
+        }
+      });
+      if (!spinning) {
+        clearInterval(timer);
+        rolling = false;
+        renderHistory();
+      }
+    }, 60);
+  }
+
+  // ---------------- 结果文本 ----------------
+  function resultText(result) {
+    var d = new Date(result.at);
+    var stamp = (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+
+    var lines = ['【LOL 5v5 位置分配】' + stamp];
+    result.teams.forEach(function (team, ti) {
+      lines.push('');
+      lines.push('[' + teamLabel(ti) + ']');
+      team.forEach(function (s) {
+        lines.push(s.position + '：' + s.name);
+      });
+    });
+    return lines.join('\n');
+  }
+
+  // ---------------- 历史 ----------------
+  function pushHistory(result) {
+    state.history.unshift({ at: result.at, text: resultText(result) });
+    state.history = state.history.slice(0, MAX_HISTORY);
+  }
+
+  function renderHistory() {
+    var card = $('#historyCard');
+    var list = $('#historyList');
+    if (!state.history.length) { card.classList.add('hidden'); return; }
+    card.classList.remove('hidden');
+    list.innerHTML = '';
+    state.history.forEach(function (h) {
+      var d = new Date(h.at);
+      var li = document.createElement('li');
+      var t = document.createElement('span');
+      t.className = 't';
+      t.textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      var s = document.createElement('span');
+      s.className = 's';
+      s.textContent = h.text.split('\n').filter(Boolean).slice(1).join(' ');
+      var b = document.createElement('button');
+      b.className = 'btn small ghost';
+      b.type = 'button';
+      b.textContent = '复制';
+      b.addEventListener('click', function () { copy(h.text, '已复制该次结果'); });
+      li.appendChild(t);
+      li.appendChild(s);
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+  }
+
+  // ---------------- 复制 / 提示 ----------------
+  function copy(text, okMsg) {
+    var done = function () { toast(okMsg || '已复制'); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); }
+      catch (e) { toast('复制失败，请手动选中文本'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  }
+
+  // ---------------- 加入 / 移出 ----------------
+  function join(team) {
+    var el = $('#joinInput');
+    var name = el.value.trim();
+    if (!name) { toast('先输入你的名字'); el.focus(); return; }
+
+    var r = teamRange(team);
+    var idx = -1;
+
+    // 已经在目标队里 → 视为改名；已在另一队 → 先移出，再入新队（换队）
+    for (var i = 0; i < SLOT_COUNT; i++) {
+      if (state.players[i].trim() === name) { idx = i; break; }
+    }
+    if (idx !== -1 && (idx < r.from || idx >= r.to)) {
+      state.players[idx] = '';      // 换队：清掉原队槽位
+      idx = -1;
+    }
+    if (idx !== -1) { renderRosters(); save(); syncUrl(); toast('你已在' + teamLabel(team)); return; }
+
+    // 占该队第一个空位
+    var target = -1;
+    for (var j = r.from; j < r.to; j++) {
+      if ((state.players[j] || '').trim() === '') { target = j; break; }
+    }
+    if (target === -1) { toast(teamLabel(team) + '已满 5 人，换另一队吧'); return; }
+
+    state.players[target] = name;
+    state.me = target;
+    el.value = '';
+    renderRosters();
+    save();
+    syncUrl();
+    toast('已加入' + teamLabel(team) + '：' + name);
+  }
+
+  // ---------------- 事件 ----------------
+  function bindEvents() {
+    $('#btnDraw').addEventListener('click', draw);
+    $('#btnRedraw').addEventListener('click', draw);
+
+    $('#btnCopyResult').addEventListener('click', function () {
+      if (!current) return;
+      copy(resultText(current), '结果已复制，去群里粘贴吧');
+    });
+
+    $('#btnJoinBlue').addEventListener('click', function () { join(0); });
+    $('#btnJoinRed').addEventListener('click', function () { join(1); });
+    $('#joinInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') join(0);
+    });
+
+    $('#btnDemo').addEventListener('click', function () {
+      state.players = ['疾风剑豪', '暗夜猎手', '无双剑姬', '暴走萝莉', '影流之主',
+                       '寒冰射手', '熔岩巨兽', '盲僧', '九尾妖狐', '德玛西亚'];
+      renderRosters();
+      save();
+      syncUrl();
+      toast('已填入示例：蓝队 5 人 / 红队 5 人');
+    });
+
+    $('#btnClear').addEventListener('click', function () {
+      state.players = new Array(SLOT_COUNT).fill('');
+      state.me = -1;
+      renderRosters();
+      save();
+      syncUrl();
+      toast('名单已清空');
+    });
+
+    $('#btnInvite').addEventListener('click', function () {
+      var link = buildUrl();
+      $('#inviteLink').value = link;
+      $('#inviteBox').classList.remove('hidden');
+      if (link.indexOf('?') === -1) toast('先让几个人选好队伍再生成，链接才会带名单');
+    });
+
+    $('#btnCopyLink').addEventListener('click', function () {
+      copy($('#inviteLink').value || buildUrl(), '邀请链接已复制');
+    });
+
+    $('#btnClearHistory').addEventListener('click', function () {
+      state.history = [];
+      renderHistory();
+      save();
+    });
+
+    ['#teamA', '#teamB'].forEach(function (sel) {
+      $(sel).addEventListener('input', function () {
+        state.teamNames = [$('#teamA').value, $('#teamB').value];
+        renderRosters();
+        if (current) reveal(current, false);   // 只换标题文案，不重放抽签动画
+        save();
+      });
+    });
+  }
+
+  // ---------------- 启动 ----------------
+  function init() {
+    var fromUrl = readUrlTeams();     // 链接里的名单优先（说明是被邀请打开的）
+    var hasLocal = load();
+
+    if (fromUrl) {
+      state.players = new Array(SLOT_COUNT).fill('');
+      fromUrl.blue.forEach(function (n, i) { if (n) state.players[i] = n; });
+      fromUrl.red.forEach(function (n, i) { if (n) state.players[TEAM_SIZE + i] = n; });
+    } else if (!hasLocal) {
+      state.players = new Array(SLOT_COUNT).fill('');
+    }
+
+    $('#teamA').value = state.teamNames[0] || '蓝队';
+    $('#teamB').value = state.teamNames[1] || '红队';
+
+    renderRosters();
+    bindEvents();
+    renderHistory();
+    syncUrl();
+  }
+
+  init();
+})();
+
+</script>
+</body>
+</html>
