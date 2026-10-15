@@ -72,19 +72,7 @@
         <input id="joinInput" type="text" maxlength="12" placeholder="输入你的名字，再点上面的队伍按钮" autocomplete="off">
       </div>
 
-      <div class="row">
-        <button class="btn ghost" id="btnDemo" type="button">填入示例</button>
-        <button class="btn ghost" id="btnClear" type="button">清空名单</button>
-      </div>
-
-      <div class="invite">
-        <button class="btn ghost block" id="btnInvite" type="button">生成邀请链接</button>
-        <div class="invite-box hidden" id="inviteBox">
-          <input id="inviteLink" type="text" readonly>
-          <button class="btn small" id="btnCopyLink" type="button">复制</button>
-        </div>
-        <p class="note">邀请链接把两队名单写进网址，转发到群里即可让朋友继续选队加入。无服务器、无登录。<br>开了上面的协作房间就不用这个了，大家同时填、实时同步。</p>
-      </div>
+      <p class="note">填错或想换队？点槽位右边的「×」把自己移出，再重新选队。</p>
     </section>
 
     <!-- 2. 分配位置 -->
@@ -114,21 +102,6 @@
         <button class="btn small ghost" id="btnClearHistory" type="button">清空</button>
       </div>
       <ul class="history" id="historyList"></ul>
-    </section>
-
-    <!-- 说明 -->
-    <section class="card note-card">
-      <h2>关于「自动读取微信 ID」</h2>
-      <p>
-        网页无法获取微信昵称或 openid —— 微信只在小程序 / 公众号授权体系内开放身份信息，
-        且昵称头像接口近两年已收紧。因此本工具采用等价方案：
-      </p>
-      <ul>
-        <li>发起者生成<strong>邀请链接</strong>转发到群里，两队名单写在网址里，谁打开都能看到当前进度；</li>
-        <li>每个人<strong>填名字 + 点自己想进的队伍</strong>（只需填一次，浏览器会记住），加入后链接自动更新，继续转给下一个人；</li>
-        <li>如果确实要自动读微信昵称，只能走小程序路线，需要注册账号 + 提审，成本远高于本场景的收益。</li>
-      </ul>
-      <p class="note">所有数据只存在你的浏览器本地（localStorage）和网址里，没有任何后端。</p>
     </section>
 
     <footer class="foot">名单与结果不会上传，清空浏览器数据即消失。</footer>

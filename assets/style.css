@@ -241,19 +241,6 @@ input::placeholder { color: #b5bac6; }
 .btn.tiny { padding: 7px 10px; font-size: 13px; font-weight: 600; width: 100%; }
 .btn.block { width: 100%; display: block; }
 
-/* ---------- invite ---------- */
-.invite { margin-top: 12px; }
-.invite-box {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.invite-box input {
-  flex: 1;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.invite-box .btn { flex: 0 0 60px; }
 .note {
   margin: 8px 0 0;
   font-size: 12px;
@@ -326,13 +313,6 @@ input::placeholder { color: #b5bac6; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* ---------- note card ---------- */
-.note-card h2 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
-.note-card p { margin: 0 0 8px; font-size: 13px; color: var(--text-dim); line-height: 1.7; }
-.note-card ul { margin: 0; padding-left: 18px; }
-.note-card li { font-size: 13px; color: var(--text-dim); line-height: 1.7; }
-.note-card strong { color: var(--text); }
 
 .foot {
   text-align: center;

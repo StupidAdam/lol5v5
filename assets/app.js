@@ -679,37 +679,6 @@
       if (e.key === 'Enter') join(0);
     });
 
-    $('#btnDemo').addEventListener('click', function () {
-      state.players = ['疾风剑豪', '暗夜猎手', '无双剑姬', '暴走萝莉', '影流之主',
-                       '寒冰射手', '熔岩巨兽', '盲僧', '九尾妖狐', '德玛西亚'];
-      renderRosters();
-      save();
-      syncUrl();
-      markDirty('players');
-      toast('已填入示例：蓝队 5 人 / 红队 5 人');
-    });
-
-    $('#btnClear').addEventListener('click', function () {
-      state.players = new Array(SLOT_COUNT).fill('');
-      state.me = -1;
-      renderRosters();
-      save();
-      syncUrl();
-      markDirty('players');
-      toast('名单已清空');
-    });
-
-    $('#btnInvite').addEventListener('click', function () {
-      var link = buildUrl();
-      $('#inviteLink').value = link;
-      $('#inviteBox').classList.remove('hidden');
-      if (link.indexOf('?') === -1) toast('先让几个人选好队伍再生成，链接才会带名单');
-    });
-
-    $('#btnCopyLink').addEventListener('click', function () {
-      copy($('#inviteLink').value || buildUrl(), '邀请链接已复制');
-    });
-
     $('#btnClearHistory').addEventListener('click', function () {
       state.history = [];
       renderHistory();
