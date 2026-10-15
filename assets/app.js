@@ -16,12 +16,26 @@
     players: new Array(SLOT_COUNT).fill(''),
     teamNames: ['蓝队', '红队'],
     me: -1,                 // 「我」所在的槽位下标，-1 表示未加入
+    room: '',               // 上次加入的房间码（刷新后自动重连）
     history: []             // [{ at: number, text: string }]
   };
 
   var current = null;   // 当前结果 { teams: [[{position,name}...], [...]], at }
   var rolling = false;  // 动画进行中
   var animTimer = null; // 动画计时器，便于打断
+
+  // ---------------- 协作状态（Supabase Realtime） ----------------
+  var collab = {
+    on: false,        // 是否处于房间模式
+    code: '',         // 6 位房间码
+    version: 0,       // 已知的服务端版本号，用于乐观锁
+    client: null,
+    channel: null,
+    dirty: {},        // 待上传的字段：p0..p9 / players / t0 / t1 / result
+    pushTimer: null,
+    pollTimer: null,
+    applying: false   // 正在应用远端数据，避免回环上传
+  };
 
   // ---------------- 随机工具（均匀分布，无取模偏差） ----------------
   var buf = new Uint32Array(1);
@@ -65,6 +79,13 @@
   }
 
   // ---------------- 渲染名单 ----------------
+  function updateCounts() {
+    [0, 1].forEach(function (t) {
+      $('#' + (t === 0 ? 'countBlue' : 'countRed')).textContent = filledIn(t) + ' / ' + TEAM_SIZE;
+    });
+    $('#countHint').textContent = (filledIn(0) + filledIn(1)) + ' / ' + SLOT_COUNT;
+  }
+
   function renderRosters() {
     [0, 1].forEach(function (t) {
       var host = $('#' + (t === 0 ? 'gridBlue' : 'gridRed'));
@@ -73,9 +94,8 @@
       for (var i = r.from; i < r.to; i++) {
         host.appendChild(buildSlot(i, t));
       }
-      $('#' + (t === 0 ? 'countBlue' : 'countRed')).textContent = filledIn(t) + ' / ' + TEAM_SIZE;
     });
-    $('#countHint').textContent = (filledIn(0) + filledIn(1)) + ' / ' + SLOT_COUNT;
+    updateCounts();
   }
 
   function buildSlot(index, team) {
@@ -90,12 +110,15 @@
     input.autocomplete = 'off';
     input.placeholder = defaultLabel(team) + '空位' + ((index % TEAM_SIZE) + 1);
     input.value = state.players[index] || '';
+    // 注意：输入过程中不能重建 DOM，否则输入框失焦、没法连续打字
     input.addEventListener('input', function () {
       state.players[index] = input.value;
-      renderRosters();
+      updateCounts();
       save();
       syncUrl();
+      markDirty('p' + index);
     });
+    input.addEventListener('blur', function () { renderRosters(); });
 
     if (state.me === index) {
       input.classList.add('is-me');
@@ -120,6 +143,7 @@
         renderRosters();
         save();
         syncUrl();
+        markDirty('p' + index);
         toast('已移出' + teamLabel(team));
       });
       wrap.appendChild(del);
@@ -135,7 +159,8 @@
         players: state.players,
         teamNames: [teamLabel(0), teamLabel(1)],
         me: state.me,
-        history: state.history
+        history: state.history,
+        room: collab.on ? collab.code : ''
       }));
     } catch (e) { /* 隐私模式下忽略 */ }
   }
@@ -149,6 +174,7 @@
       if (Array.isArray(d.players) && d.players.length === SLOT_COUNT) state.players = d.players;
       if (Array.isArray(d.teamNames) && d.teamNames.length === 2) state.teamNames = d.teamNames;
       if (typeof d.me === 'number') state.me = d.me;
+      if (typeof d.room === 'string') state.room = d.room;
       if (Array.isArray(d.history)) state.history = d.history.slice(0, MAX_HISTORY);
       return true;
     } catch (e) { return false; }
@@ -178,6 +204,7 @@
       var filled = teamSlots(t).filter(function (s) { return s.trim() !== ''; });
       if (filled.length) params.set(t === 0 ? 'blue' : 'red', filled.join(','));
     });
+    if (collab.on) params.set('room', collab.code);   // 房间模式下链接自带房间码
     var qs = params.toString();
     return location.origin + location.pathname + (qs ? '?' + qs : '');
   }
@@ -218,10 +245,12 @@
     for (var i = 0; i < 20 && fingerprint(result) === prev; i++) {
       result = makeAssign(names);
     }
+    result.by = state.me >= 0 ? (state.players[state.me] || '').trim() : '';
     current = result;
     pushHistory(result);
     save();
     reveal(result);
+    markDirty('result');        // 房间里所有人看到同一份结果
   }
 
   // ---------------- 结果渲染（带短动画） ----------------
@@ -302,6 +331,7 @@
         lines.push(s.position + '：' + s.name);
       });
     });
+    if (result.by) lines.push('', '（由 ' + result.by + ' 抽取）');
     return lines.join('\n');
   }
 
@@ -383,6 +413,7 @@
     }
     if (idx !== -1 && (idx < r.from || idx >= r.to)) {
       state.players[idx] = '';      // 换队：清掉原队槽位
+      markDirty('p' + idx);
       idx = -1;
     }
     if (idx !== -1) { renderRosters(); save(); syncUrl(); toast('你已在' + teamLabel(team)); return; }
@@ -400,7 +431,236 @@
     renderRosters();
     save();
     syncUrl();
+    markDirty('p' + target);
     toast('已加入' + teamLabel(team) + '：' + name);
+  }
+
+  // ---------------- 协作：Supabase 房间 ----------------
+  function collabConfigured() {
+    var cfg = window.LOL_CONFIG || {};
+    return !!(window.supabase && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+  }
+
+  function ensureClient() {
+    if (collab.client) return collab.client;
+    var cfg = window.LOL_CONFIG;
+    collab.client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    return collab.client;
+  }
+
+  function snapshot() {
+    return {
+      players: state.players.slice(),
+      teamNames: [teamLabel(0), teamLabel(1)],
+      result: current || null
+    };
+  }
+
+  /** 标记某个字段被本地改动，300ms 后批量上传（字段级，避免整包覆盖别人的改动） */
+  function markDirty(key) {
+    if (!collab.on || collab.applying) return;
+    collab.dirty[key] = true;
+    clearTimeout(collab.pushTimer);
+    collab.pushTimer = setTimeout(push, 300);
+  }
+
+  function readKey(obj, key) {
+    if (key === 'result') return obj.result;
+    if (key === 'players') return obj.players;
+    if (key === 'teamNames') return obj.teamNames;
+    if (key.charAt(0) === 't') return obj.teamNames[Number(key.slice(1))];
+    return obj.players[Number(key.slice(1))];
+  }
+
+  function writeKey(obj, key, val) {
+    if (key === 'result') { obj.result = val; return; }
+    if (key === 'players') { obj.players = val; return; }
+    if (key === 'teamNames') { obj.teamNames = val; return; }
+    if (key.charAt(0) === 't') { obj.teamNames[Number(key.slice(1))] = val; return; }
+    obj.players[Number(key.slice(1))] = val;
+  }
+
+  /** 以远端数据为底，只把本地改过的字段盖上去 */
+  function mergeDirty(base, local) {
+    var out = JSON.parse(JSON.stringify(base || {}));
+    if (!out.players) out.players = new Array(SLOT_COUNT).fill('');
+    if (!out.teamNames) out.teamNames = ['蓝队', '红队'];
+    Object.keys(collab.dirty).forEach(function (key) {
+      writeKey(out, key, readKey(local, key));
+    });
+    return out;
+  }
+
+  function setStatus(text, kind) {
+    var el = $('#syncStatus');
+    if (!el) return;
+    el.innerHTML = '<i class="dot ' + (kind || '') + '"></i>' + text;
+  }
+
+  function renderCollabUI() {
+    if (collab.on) {
+      $('#collabOn').classList.remove('hidden');
+      $('#collabOff').classList.add('hidden');
+      $('#roomCode').textContent = collab.code;
+    } else {
+      $('#collabOn').classList.add('hidden');
+      $('#collabOff').classList.remove('hidden');
+    }
+  }
+
+  function genCode() {
+    var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // 去掉 0/O/1/I 等易混淆字符
+    var s = '';
+    for (var i = 0; i < 6; i++) s += chars[randInt(chars.length)];
+    return s;
+  }
+
+  function roomUrl() {
+    return location.origin + location.pathname + '?room=' + collab.code;
+  }
+
+  async function createRoom() {
+    if (!collabConfigured()) { toast('还没配置 Supabase，见 README「多人协作」一节'); return; }
+    setStatus('创建中…', 'warn');
+    var client = ensureClient();
+    var code = '';
+    for (var i = 0; i < 8; i++) {
+      var cand = genCode();
+      var hit = await client.from('rooms').select('code').eq('code', cand).maybeSingle();
+      if (!hit.data) { code = cand; break; }
+    }
+    if (!code) { setStatus('本地模式', ''); toast('房间码生成失败，再点一次'); return; }
+
+    var ins = await client.from('rooms').insert({ code: code, data: snapshot(), version: 1 });
+    if (ins.error) { setStatus('本地模式', ''); toast('创建失败：' + ins.error.message); return; }
+
+    collab.on = true; collab.code = code; collab.version = 1; collab.dirty = {};
+    renderCollabUI(); subscribe(); startPoll(); save(); syncUrl();
+    setStatus('已连接', 'on');
+    toast('房间已创建：' + code);
+  }
+
+  async function joinRoom(input, silent) {
+    var code = String(input || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) { toast('房间码是 6 位字母数字'); return false; }
+    if (!collabConfigured()) { toast('还没配置 Supabase，见 README「多人协作」一节'); return false; }
+    setStatus('连接中…', 'warn');
+
+    var res = await ensureClient().from('rooms').select('data,version').eq('code', code).maybeSingle();
+    if (res.error || !res.data) { setStatus('本地模式', ''); toast('找不到房间 ' + code); return false; }
+
+    collab.on = true; collab.code = code; collab.version = res.data.version; collab.dirty = {};
+    applyRemote(res.data.data, res.data.version, true);
+    renderCollabUI(); subscribe(); startPoll(); save(); syncUrl();
+    setStatus('已连接', 'on');
+    if (!silent) toast('已加入房间 ' + code);
+    return true;
+  }
+
+  function leaveRoom() {
+    unsubscribe();
+    clearInterval(collab.pollTimer);
+    clearTimeout(collab.pushTimer);
+    collab.on = false; collab.code = ''; collab.dirty = {};
+    renderCollabUI(); setStatus('本地模式', '');
+    syncUrl(); save();
+    toast('已退出协作，回到本地模式');
+  }
+
+  async function push() {
+    if (!collab.on) return;
+    var client = ensureClient();
+    setStatus('同步中…', 'warn');
+    var local = snapshot();
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      var res = await client.from('rooms').select('data,version').eq('code', collab.code).maybeSingle();
+      if (res.error) { setStatus('同步失败', 'warn'); return; }
+
+      if (!res.data) {   // 房间被清理过，重建
+        await client.from('rooms').insert({ code: collab.code, data: local, version: 1 });
+        collab.version = 1; collab.dirty = {}; setStatus('已连接', 'on'); return;
+      }
+
+      var merged = mergeDirty(res.data.data, local);
+      var upd = await client.from('rooms')
+        .update({ data: merged, version: res.data.version + 1, updated_at: new Date().toISOString() })
+        .eq('code', collab.code)
+        .eq('version', res.data.version)      // 乐观锁：版本没变才写入
+        .select('version');
+
+      if (upd.data && upd.data.length) {
+        collab.version = upd.data[0].version;
+        collab.dirty = {};
+        setStatus('已连接', 'on');
+        return;
+      }
+      // 版本被别人抢先了 -> 重新拉取、重新合并，再试
+    }
+    setStatus('同步冲突', 'warn');
+    toast('有人的改动和你的冲突了，已重试多次');
+  }
+
+  function applyRemote(data, version, force) {
+    if (!data) return;
+    if (!force && version <= collab.version) return;
+    collab.version = version;
+
+    collab.applying = true;
+    if (Array.isArray(data.players) && data.players.length === SLOT_COUNT) {
+      state.players = data.players.slice();
+    }
+    if (Array.isArray(data.teamNames) && data.teamNames.length === 2) {
+      state.teamNames = data.teamNames;
+      if ($('#teamA')) $('#teamA').value = data.teamNames[0] || '蓝队';
+      if ($('#teamB')) $('#teamB').value = data.teamNames[1] || '红队';
+    }
+    renderRosters();
+
+    if (data.result && (!current || data.result.at > current.at)) {
+      current = data.result;
+      reveal(current, false);        // 别人抽的签，直接展示不放动画
+    }
+    collab.applying = false;
+
+    if (Object.keys(collab.dirty).length) {
+      clearTimeout(collab.pushTimer);
+      collab.pushTimer = setTimeout(push, 200);
+    }
+  }
+
+  function subscribe() {
+    if (!collab.on) return;
+    unsubscribe();
+    collab.channel = ensureClient().channel('room-' + collab.code)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'rooms', filter: 'code=eq.' + collab.code
+      }, function (payload) {
+        var row = payload.new;
+        if (row) applyRemote(row.data, row.version);
+      })
+      .subscribe(function (status) {
+        if (status === 'SUBSCRIBED') setStatus('已连接', 'on');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setStatus('实时断开，轮询兜底中', 'warn');
+        }
+      });
+  }
+
+  function unsubscribe() {
+    if (collab.channel) {
+      try { ensureClient().removeChannel(collab.channel); } catch (e) { /* 忽略 */ }
+      collab.channel = null;
+    }
+  }
+
+  function startPoll() {
+    clearInterval(collab.pollTimer);
+    collab.pollTimer = setInterval(async function () {
+      if (!collab.on || document.hidden) return;
+      var res = await ensureClient().from('rooms').select('data,version').eq('code', collab.code).maybeSingle();
+      if (res.data && res.data.version > collab.version) applyRemote(res.data.data, res.data.version);
+    }, 8000);
   }
 
   // ---------------- 事件 ----------------
@@ -425,6 +685,7 @@
       renderRosters();
       save();
       syncUrl();
+      markDirty('players');
       toast('已填入示例：蓝队 5 人 / 红队 5 人');
     });
 
@@ -434,6 +695,7 @@
       renderRosters();
       save();
       syncUrl();
+      markDirty('players');
       toast('名单已清空');
     });
 
@@ -455,13 +717,26 @@
     });
 
     ['#teamA', '#teamB'].forEach(function (sel) {
+      var key = sel === '#teamA' ? 't0' : 't1';
       $(sel).addEventListener('input', function () {
         state.teamNames = [$('#teamA').value, $('#teamB').value];
         renderRosters();
         if (current) reveal(current, false);   // 只换标题文案，不重放抽签动画
         save();
+        markDirty(key);
       });
     });
+
+    // 协作
+    $('#btnCreateRoom').addEventListener('click', createRoom);
+    $('#btnJoinRoom').addEventListener('click', function () { joinRoom($('#roomInput').value); });
+    $('#roomInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') joinRoom($('#roomInput').value);
+    });
+    $('#btnCopyRoomLink').addEventListener('click', function () {
+      copy(roomUrl(), '邀请链接已复制，发群里吧');
+    });
+    $('#btnLeaveRoom').addEventListener('click', leaveRoom);
   }
 
   // ---------------- 启动 ----------------
@@ -484,6 +759,15 @@
     bindEvents();
     renderHistory();
     syncUrl();
+
+    // 带着 ?room=XXXXXX 打开，或上次加入过房间 -> 自动重连
+    var urlRoom = new URLSearchParams(location.search).get('room');
+    var target = urlRoom || state.room;
+    if (target && collabConfigured()) joinRoom(target);
+    else if (urlRoom && !collabConfigured()) {
+      setStatus('未配置后端', 'warn');
+      toast('这个链接是协作房间，但页面还没配置 Supabase');
+    }
   }
 
   init();

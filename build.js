@@ -14,8 +14,9 @@ const js = read('assets/app.js');
 
 const LINK = '<link rel="stylesheet" href="assets/style.css">';
 const SCRIPT = '<script src="assets/app.js"></script>';
+const CONFIG = '<script src="assets/config.js"></script>';
 
-if (!html.includes(LINK) || !html.includes(SCRIPT)) {
+if (!html.includes(LINK) || !html.includes(SCRIPT) || !html.includes(CONFIG)) {
   console.error('没找到要内联的 link / script 标签，index.html 结构变了？');
   process.exit(1);
 }
@@ -24,8 +25,10 @@ if (!html.includes(LINK) || !html.includes(SCRIPT)) {
 const safeCss = css.replace(/<\/style>/gi, '<\\/style>');
 const safeJs = js.replace(/<\/script>/gi, '<\\/script>');
 
+// config.js 里只有两个字符串常量，直接内联；Supabase 的 CDN 仍保持外链（协作模式才需要联网）
 html = html
   .replace(LINK, '<style>\n' + safeCss + '\n</style>')
+  .replace(CONFIG, '<script>\n' + read('assets/config.js') + '\n</script>')
   .replace(SCRIPT, '<script>\n' + safeJs + '\n</script>');
 
 const out = path.join(root, 'lol5v5.html');

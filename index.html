@@ -15,6 +15,32 @@
       <p>玩家自己选蓝队 / 红队 · 每队满 5 人 · 随机分配五个位置</p>
     </header>
 
+    <!-- 0. 协作 -->
+    <section class="card">
+      <div class="card-head">
+        <h2>多人协作（可选）</h2>
+        <span class="status" id="syncStatus"><i class="dot off"></i>本地模式</span>
+      </div>
+
+      <div id="collabOff">
+        <button class="btn block" id="btnCreateRoom" type="button">创建房间 · 大家一起填</button>
+        <div class="join room-join">
+          <input id="roomInput" type="text" maxlength="6" placeholder="输入 6 位房间码" autocomplete="off">
+          <button class="btn" id="btnJoinRoom" type="button">加入</button>
+        </div>
+        <p class="note">本地模式：只有你自己的浏览器看得到，适合一个人代填。开房间后把链接发群里，大家可以同时选队，改动实时同步。</p>
+      </div>
+
+      <div id="collabOn" class="hidden">
+        <div class="room-code">房间码<strong id="roomCode">------</strong></div>
+        <div class="row">
+          <button class="btn ghost" id="btnCopyRoomLink" type="button">复制邀请链接</button>
+          <button class="btn ghost" id="btnLeaveRoom" type="button">退出协作</button>
+        </div>
+        <p class="note">把这个链接发到群里，大家同时打开就能各自选队，<span id="peerHint">改动实时同步</span>。</p>
+      </div>
+    </section>
+
     <!-- 1. 选队 -->
     <section class="card">
       <div class="card-head">
@@ -57,7 +83,7 @@
           <input id="inviteLink" type="text" readonly>
           <button class="btn small" id="btnCopyLink" type="button">复制</button>
         </div>
-        <p class="note">邀请链接把两队名单写进网址，转发到群里即可让朋友继续选队加入。无服务器、无登录。</p>
+        <p class="note">邀请链接把两队名单写进网址，转发到群里即可让朋友继续选队加入。无服务器、无登录。<br>开了上面的协作房间就不用这个了，大家同时填、实时同步。</p>
       </div>
     </section>
 
@@ -109,6 +135,8 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="assets/config.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>
