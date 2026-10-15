@@ -517,8 +517,10 @@ input::placeholder { color: #b5bac6; }
  * anon key 本来就是设计成可以放在前端的，安全性靠 supabase.sql 里的 RLS 策略约束。
  */
 window.LOL_CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: ''
+  // 注意是项目 URL，不要带 /rest/v1/
+  SUPABASE_URL: 'https://tkumltlyqlytgkdsgmfv.supabase.co',
+  // 新版 UI 里叫 Publishable key（sb_publishable_ 开头），等价于以前的 anon key
+  SUPABASE_ANON_KEY: 'sb_publishable_XazgujPt4C52TeYMl3ns8g_n2WAXM9J'
 };
 
 </script>

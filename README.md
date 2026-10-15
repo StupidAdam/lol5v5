@@ -138,7 +138,7 @@ node build.js      # 生成 lol5v5.html（约 28 KB，CSS 与 JS 全部内联）
 
 1. **建项目**：[supabase.com](https://supabase.com) 免费注册 → New project（约 2 分钟）
 2. **建表**：控制台 → SQL Editor → 粘贴执行根目录的 `supabase.sql`（建 `rooms` 表 + RLS + 开 Realtime）
-3. **填配置**：Project Settings → API → 把 **Project URL** 和 **anon public key** 抄进 `assets/config.js`，重新部署
+3. **填配置**：Project Settings → API → 把 **Project URL**（形如 `https://xxx.supabase.co`，**不要带 `/rest/v1/`**）和 **Publishable key**（新版叫法，等价于以前的 anon public key，`sb_publishable_` 开头）抄进 `assets/config.js`，重新部署
 
 验证：打开页面点「创建房间」，状态点变绿显示「已连接」就成功了。
 
