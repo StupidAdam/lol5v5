@@ -124,6 +124,14 @@ input::placeholder { color: #b5bac6; }
   color: var(--text-dim);
   margin-bottom: 10px;
 }
+.host-line {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: -4px 0 10px;
+}
+.host-line strong { color: var(--text); font-weight: 600; }
+.host-tip { color: #b45309; }
+
 .room-code strong {
   font-size: 22px;
   letter-spacing: 4px;
@@ -237,6 +245,8 @@ input::placeholder { color: #b5bac6; }
   padding: 13px 14px;
 }
 .btn.ghost { background: #fbfcfe; color: var(--text-dim); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
 .btn.small { padding: 6px 10px; font-size: 13px; }
 .btn.tiny { padding: 7px 10px; font-size: 13px; font-weight: 600; width: 100%; }
 .btn.block { width: 100%; display: block; }

@@ -33,11 +33,13 @@
 
       <div id="collabOn" class="hidden">
         <div class="room-code">房间码<strong id="roomCode">------</strong></div>
+        <div class="host-line" id="hostLine">房主：---</div>
         <div class="row">
           <button class="btn ghost" id="btnCopyRoomLink" type="button">复制邀请链接</button>
           <button class="btn ghost" id="btnLeaveRoom" type="button">退出协作</button>
         </div>
-        <p class="note">把这个链接发到群里，大家同时打开就能各自选队，<span id="peerHint">改动实时同步</span>。</p>
+        <button class="btn ghost block hidden" id="btnTakeHost" type="button">房主不在？我来接管</button>
+        <p class="note">把这个链接发到群里，大家同时打开就能各自选队，改动实时同步。<strong>只有房主能抽签</strong>，避免多人点了打乱结果。</p>
       </div>
     </section>
 
@@ -87,6 +89,7 @@
 
       <button class="btn ghost block" id="btnDraw" type="button">只重新随机位置（队伍不动）</button>
       <p class="note">沿用大家自己选好的队伍，只把队内五个位置重新洗一遍。</p>
+      <p class="note host-tip hidden" id="hostTip">只有房主能抽签，等 TA 点就行。</p>
     </section>
 
     <!-- 3. 结果 -->

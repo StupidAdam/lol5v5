@@ -28,6 +28,8 @@
   var collab = {
     on: false,        // 是否处于房间模式
     code: '',         // 6 位房间码
+    host: '',         // 房主的客户端 id（只有房主能抽签）
+    hostName: '',     // 房主填的名字，用于展示
     version: 0,       // 已知的服务端版本号，用于乐观锁
     client: null,
     channel: null,
@@ -237,6 +239,7 @@
   }
 
   function draw() {
+    if (!isHost()) { toast('只有房主能抽签'); return; }
     if (rolling) { clearInterval(animTimer); rolling = false; }   // 连点时打断上一次动画
     var names = roster();
     var prev = current ? fingerprint(current) : null;
@@ -255,6 +258,7 @@
 
   /** 玩法二：把 10 个人打乱重分成两队，再给每队随机分位置 */
   function shuffleTeams() {
+    if (!isHost()) { toast('只有房主能抽签'); return; }
     var myName = state.me >= 0 ? (state.players[state.me] || '').trim() : '';
     var pool = shuffle(roster());          // 空位用占位名补齐后整体洗牌
     state.players = pool.slice();
@@ -454,10 +458,70 @@
     save();
     syncUrl();
     markDirty('p' + target);
+    if (isHost()) markDirty('hostName');   // 房主填了名字后，把展示名同步给全场
     toast('已加入' + teamLabel(team) + '：' + name);
   }
 
   // ---------------- 协作：Supabase 房间 ----------------
+  var CLIENT_KEY = 'lol-randomizer-client';
+
+  /** 本机唯一身份，用来判断你是不是房主；存 localStorage，刷新后不变 */
+  function getClientId() {
+    var id = '';
+    try { id = localStorage.getItem(CLIENT_KEY) || ''; } catch (e) { /* 隐私模式 */ }
+    if (!id) {
+      var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      for (var i = 0; i < 12; i++) id += chars[randInt(chars.length)];
+      try { localStorage.setItem(CLIENT_KEY, id); } catch (e) { /* 忽略 */ }
+    }
+    return id;
+  }
+
+  /** 本地模式没有房主概念，谁都能抽；房间模式下只有房主能抽 */
+  function isHost() { return !collab.on || collab.host === getClientId(); }
+
+  function myName() {
+    return state.me >= 0 ? (state.players[state.me] || '').trim() : '';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /** 按房主身份启用/禁用抽签按钮，并更新提示 */
+  function updateHostUI() {
+    var host = isHost();
+    ['#btnShuffleTeams', '#btnDraw', '#btnRedraw'].forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.disabled = !host;
+    });
+    var tip = $('#hostTip');
+    if (tip) tip.classList.toggle('hidden', host);
+
+    var line = $('#hostLine');
+    if (line && collab.on) {
+      line.innerHTML = host
+        ? '你是<strong>房主</strong>，抽签由你来点'
+        : '房主是 <strong>' + escapeHtml(collab.hostName || '对方') + '</strong>，等 TA 抽';
+    }
+    var take = $('#btnTakeHost');
+    if (take) take.classList.toggle('hidden', host || !collab.on);
+  }
+
+  /** 房主不在时的兜底：接管抽签权 */
+  function takeHost() {
+    if (!collab.on) return;
+    if (!window.confirm('接管后由你来抽签，原房主将失去抽签权。确定吗？')) return;
+    collab.host = getClientId();
+    collab.hostName = myName();
+    markDirty('host');
+    markDirty('hostName');
+    updateHostUI();
+    toast('你已成为房主');
+  }
+
   function collabConfigured() {
     var cfg = window.LOL_CONFIG || {};
     return !!(window.supabase && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
@@ -471,11 +535,17 @@
   }
 
   function snapshot() {
-    return {
+    var s = {
       players: state.players.slice(),
       teamNames: [teamLabel(0), teamLabel(1)],
       result: current || null
     };
+    if (collab.on) {
+      s.host = collab.host;
+      s.hostName = collab.hostName || '';
+      if (isHost() && myName()) s.hostName = myName();   // 房主改名/换队时同步展示名
+    }
+    return s;
   }
 
   /** 标记某个字段被本地改动，300ms 后批量上传（字段级，避免整包覆盖别人的改动） */
@@ -490,6 +560,8 @@
     if (key === 'result') return obj.result;
     if (key === 'players') return obj.players;
     if (key === 'teamNames') return obj.teamNames;
+    if (key === 'host') return obj.host;
+    if (key === 'hostName') return obj.hostName;
     if (key.charAt(0) === 't') return obj.teamNames[Number(key.slice(1))];
     return obj.players[Number(key.slice(1))];
   }
@@ -498,6 +570,8 @@
     if (key === 'result') { obj.result = val; return; }
     if (key === 'players') { obj.players = val; return; }
     if (key === 'teamNames') { obj.teamNames = val; return; }
+    if (key === 'host') { obj.host = val; return; }
+    if (key === 'hostName') { obj.hostName = val; return; }
     if (key.charAt(0) === 't') { obj.teamNames[Number(key.slice(1))] = val; return; }
     obj.players[Number(key.slice(1))] = val;
   }
@@ -553,11 +627,19 @@
     }
     if (!code) { setStatus('本地模式', ''); toast('房间码生成失败，再点一次'); return; }
 
-    var ins = await client.from('rooms').insert({ code: code, data: snapshot(), version: 1 });
+    // 创建者即房主
+    var clientId = getClientId();
+    var data = snapshot();
+    data.host = clientId;
+    data.hostName = myName();
+
+    var ins = await client.from('rooms').insert({ code: code, data: data, version: 1 });
     if (ins.error) { setStatus('本地模式', ''); toast('创建失败：' + ins.error.message); return; }
 
     collab.on = true; collab.code = code; collab.version = 1; collab.dirty = {};
+    collab.host = clientId; collab.hostName = data.hostName;
     renderCollabUI(); subscribe(); startPoll(); save(); syncUrl();
+    updateHostUI();
     setStatus('已连接', 'on');
     toast('房间已创建：' + code);
   }
@@ -584,7 +666,8 @@
     clearInterval(collab.pollTimer);
     clearTimeout(collab.pushTimer);
     collab.on = false; collab.code = ''; collab.dirty = {};
-    renderCollabUI(); setStatus('本地模式', '');
+    collab.host = ''; collab.hostName = '';
+    renderCollabUI(); setStatus('本地模式', ''); updateHostUI();
     syncUrl(); save();
     toast('已退出协作，回到本地模式');
   }
@@ -643,6 +726,10 @@
       current = data.result;
       reveal(current, false);        // 别人抽的签，直接展示不放动画
     }
+    if (typeof data.host === 'string') collab.host = data.host;
+    if (typeof data.hostName === 'string') collab.hostName = data.hostName;
+    updateHostUI();
+
     collab.applying = false;
 
     if (Object.keys(collab.dirty).length) {
@@ -733,6 +820,7 @@
       copy(roomUrl(), '邀请链接已复制，发群里吧');
     });
     $('#btnLeaveRoom').addEventListener('click', leaveRoom);
+    $('#btnTakeHost').addEventListener('click', takeHost);
   }
 
   // ---------------- 启动 ----------------
@@ -754,6 +842,7 @@
     renderRosters();
     bindEvents();
     renderHistory();
+    updateHostUI();
     syncUrl();
 
     // 带着 ?room=XXXXXX 打开，或上次加入过房间 -> 自动重连
