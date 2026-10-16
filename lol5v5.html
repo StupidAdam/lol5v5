@@ -253,10 +253,26 @@ input::placeholder { color: #b5bac6; }
   padding: 13px 14px;
 }
 .btn.ghost { background: #fbfcfe; color: var(--text-dim); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn:disabled:active { transform: none; }
 .btn.small { padding: 6px 10px; font-size: 13px; }
 .btn.tiny { padding: 7px 10px; font-size: 13px; font-weight: 600; width: 100%; }
+
+/* 次要但明确「可点」的按钮：品牌色描边，避免和禁用态混淆 */
+.btn.secondary {
+  background: #fff;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* 禁用态：明确的灰底浅字，而不是整体半透明（后者看着像没渲染出来） */
+.btn:disabled {
+  background: #f1f2f6;
+  border-color: var(--line);
+  color: #a4a9b6;
+  cursor: not-allowed;
+  font-weight: 400;
+}
+.btn:disabled:active { transform: none; }
 .btn.block { width: 100%; display: block; }
 
 .note {
@@ -452,7 +468,7 @@ input::placeholder { color: #b5bac6; }
       <button class="btn primary block" id="btnShuffleTeams" type="button">一键随机分队 + 分配位置</button>
       <p class="note">把 10 个人<strong>打乱重分成两队</strong>（各 5 人），再给每队随机分位置。当前队伍会被重排。</p>
 
-      <button class="btn ghost block" id="btnDraw" type="button">只重新随机位置（队伍不动）</button>
+      <button class="btn secondary block" id="btnDraw" type="button">只重新随机位置（队伍不动）</button>
       <p class="note">沿用大家自己选好的队伍，只把队内五个位置重新洗一遍。</p>
       <p class="note host-tip hidden" id="hostTip">只有房主能抽签，等 TA 点就行。</p>
     </section>
@@ -464,7 +480,7 @@ input::placeholder { color: #b5bac6; }
         <button class="btn small ghost" id="btnCopyResult" type="button">复制结果</button>
       </div>
       <div class="teams" id="resultBody"></div>
-      <button class="btn ghost block" id="btnRedraw" type="button">重新抽取位置</button>
+      <button class="btn secondary block" id="btnRedraw" type="button">重新抽取位置</button>
     </section>
 
     <!-- 4. 历史 -->
@@ -995,9 +1011,17 @@ window.LOL_CONFIG = {
   /** 按房主身份启用/禁用抽签按钮，并更新提示 */
   function updateHostUI() {
     var host = isHost();
-    ['#btnShuffleTeams', '#btnDraw', '#btnRedraw'].forEach(function (sel) {
+    // 禁用时直接把原因写进按钮文案，别让人以为是坏了
+    var labels = {
+      '#btnShuffleTeams': ['一键随机分队 + 分配位置', '一键随机分队（仅房主可点）'],
+      '#btnDraw': ['只重新随机位置（队伍不动）', '只重新随机位置（仅房主可点）'],
+      '#btnRedraw': ['重新抽取位置', '重新抽取位置（仅房主可点）']
+    };
+    Object.keys(labels).forEach(function (sel) {
       var el = $(sel);
-      if (el) el.disabled = !host;
+      if (!el) return;
+      el.disabled = !host;
+      el.textContent = host ? labels[sel][0] : labels[sel][1];
     });
     var tip = $('#hostTip');
     if (tip) tip.classList.toggle('hidden', host);

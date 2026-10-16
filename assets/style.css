@@ -245,10 +245,26 @@ input::placeholder { color: #b5bac6; }
   padding: 13px 14px;
 }
 .btn.ghost { background: #fbfcfe; color: var(--text-dim); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn:disabled:active { transform: none; }
 .btn.small { padding: 6px 10px; font-size: 13px; }
 .btn.tiny { padding: 7px 10px; font-size: 13px; font-weight: 600; width: 100%; }
+
+/* 次要但明确「可点」的按钮：品牌色描边，避免和禁用态混淆 */
+.btn.secondary {
+  background: #fff;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* 禁用态：明确的灰底浅字，而不是整体半透明（后者看着像没渲染出来） */
+.btn:disabled {
+  background: #f1f2f6;
+  border-color: var(--line);
+  color: #a4a9b6;
+  cursor: not-allowed;
+  font-weight: 400;
+}
+.btn:disabled:active { transform: none; }
 .btn.block { width: 100%; display: block; }
 
 .note {

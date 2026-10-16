@@ -493,9 +493,17 @@
   /** 按房主身份启用/禁用抽签按钮，并更新提示 */
   function updateHostUI() {
     var host = isHost();
-    ['#btnShuffleTeams', '#btnDraw', '#btnRedraw'].forEach(function (sel) {
+    // 禁用时直接把原因写进按钮文案，别让人以为是坏了
+    var labels = {
+      '#btnShuffleTeams': ['一键随机分队 + 分配位置', '一键随机分队（仅房主可点）'],
+      '#btnDraw': ['只重新随机位置（队伍不动）', '只重新随机位置（仅房主可点）'],
+      '#btnRedraw': ['重新抽取位置', '重新抽取位置（仅房主可点）']
+    };
+    Object.keys(labels).forEach(function (sel) {
       var el = $(sel);
-      if (el) el.disabled = !host;
+      if (!el) return;
+      el.disabled = !host;
+      el.textContent = host ? labels[sel][0] : labels[sel][1];
     });
     var tip = $('#hostTip');
     if (tip) tip.classList.toggle('hidden', host);
