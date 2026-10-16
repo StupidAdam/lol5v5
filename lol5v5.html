@@ -302,6 +302,11 @@ input::placeholder { color: #b5bac6; }
 
 #resultCard .btn.ghost.block { margin-top: 12px; }
 
+/* 卡片内「按钮 + 说明 + 按钮」的堆叠间距 */
+.card > .btn.block + .note { margin-top: 8px; }
+.card > .note + .btn.block { margin-top: 14px; }
+.note strong { color: var(--text); font-weight: 600; }
+
 /* ---------- history ---------- */
 .history { list-style: none; margin: 0; padding: 0; }
 .history li {
@@ -425,14 +430,18 @@ input::placeholder { color: #b5bac6; }
       <p class="note">填错或想换队？点槽位右边的「×」把自己移出，再重新选队。</p>
     </section>
 
-    <!-- 2. 分配位置 -->
+    <!-- 2. 分队 / 分配位置 -->
     <section class="card">
       <div class="card-head">
-        <h2>2. 随机分配位置</h2>
-        <span class="hint">只抽位置，不动队伍</span>
+        <h2>2. 分队与位置</h2>
+        <span class="hint">两种玩法</span>
       </div>
-      <p class="note" id="readyHint">队伍由玩家自行选择，这里只给每队随机分配上单 / 中单 / 打野 / 射手 / 辅助，可反复重抽。</p>
-      <button class="btn primary block" id="btnDraw" type="button">一键随机分配位置</button>
+
+      <button class="btn primary block" id="btnShuffleTeams" type="button">一键随机分队 + 分配位置</button>
+      <p class="note">把 10 个人<strong>打乱重分成两队</strong>（各 5 人），再给每队随机分位置。当前队伍会被重排。</p>
+
+      <button class="btn ghost block" id="btnDraw" type="button">只重新随机位置（队伍不动）</button>
+      <p class="note">沿用大家自己选好的队伍，只把队内五个位置重新洗一遍。</p>
     </section>
 
     <!-- 3. 结果 -->
@@ -731,6 +740,28 @@ window.LOL_CONFIG = {
     save();
     reveal(result);
     markDirty('result');        // 房间里所有人看到同一份结果
+  }
+
+  /** 玩法二：把 10 个人打乱重分成两队，再给每队随机分位置 */
+  function shuffleTeams() {
+    var myName = state.me >= 0 ? (state.players[state.me] || '').trim() : '';
+    var pool = shuffle(roster());          // 空位用占位名补齐后整体洗牌
+    state.players = pool.slice();
+
+    // 「我」跟着名字走，分队后重新定位
+    state.me = -1;
+    if (myName) {
+      for (var i = 0; i < SLOT_COUNT; i++) {
+        if (state.players[i].trim() === myName) { state.me = i; break; }
+      }
+    }
+
+    renderRosters();
+    save();
+    syncUrl();
+    markDirty('players');
+    toast('已随机分队');
+    draw();                                 // 分完队立刻分配位置
   }
 
   // ---------------- 结果渲染（带短动画） ----------------
@@ -1147,6 +1178,11 @@ window.LOL_CONFIG = {
   function bindEvents() {
     $('#btnDraw').addEventListener('click', draw);
     $('#btnRedraw').addEventListener('click', draw);
+
+    // 随机分队会重排全场（房间里所有人都受影响），所以加一次确认
+    $('#btnShuffleTeams').addEventListener('click', function () {
+      if (window.confirm('会把 10 个人重新打乱分队，当前队伍会变。确定吗？')) shuffleTeams();
+    });
 
     $('#btnCopyResult').addEventListener('click', function () {
       if (!current) return;

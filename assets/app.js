@@ -253,6 +253,28 @@
     markDirty('result');        // 房间里所有人看到同一份结果
   }
 
+  /** 玩法二：把 10 个人打乱重分成两队，再给每队随机分位置 */
+  function shuffleTeams() {
+    var myName = state.me >= 0 ? (state.players[state.me] || '').trim() : '';
+    var pool = shuffle(roster());          // 空位用占位名补齐后整体洗牌
+    state.players = pool.slice();
+
+    // 「我」跟着名字走，分队后重新定位
+    state.me = -1;
+    if (myName) {
+      for (var i = 0; i < SLOT_COUNT; i++) {
+        if (state.players[i].trim() === myName) { state.me = i; break; }
+      }
+    }
+
+    renderRosters();
+    save();
+    syncUrl();
+    markDirty('players');
+    toast('已随机分队');
+    draw();                                 // 分完队立刻分配位置
+  }
+
   // ---------------- 结果渲染（带短动画） ----------------
   function reveal(result, withAnim) {
     var body = $('#resultBody');
@@ -667,6 +689,11 @@
   function bindEvents() {
     $('#btnDraw').addEventListener('click', draw);
     $('#btnRedraw').addEventListener('click', draw);
+
+    // 随机分队会重排全场（房间里所有人都受影响），所以加一次确认
+    $('#btnShuffleTeams').addEventListener('click', function () {
+      if (window.confirm('会把 10 个人重新打乱分队，当前队伍会变。确定吗？')) shuffleTeams();
+    });
 
     $('#btnCopyResult').addEventListener('click', function () {
       if (!current) return;

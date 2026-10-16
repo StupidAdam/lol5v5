@@ -294,6 +294,11 @@ input::placeholder { color: #b5bac6; }
 
 #resultCard .btn.ghost.block { margin-top: 12px; }
 
+/* 卡片内「按钮 + 说明 + 按钮」的堆叠间距 */
+.card > .btn.block + .note { margin-top: 8px; }
+.card > .note + .btn.block { margin-top: 14px; }
+.note strong { color: var(--text); font-weight: 600; }
+
 /* ---------- history ---------- */
 .history { list-style: none; margin: 0; padding: 0; }
 .history li {
